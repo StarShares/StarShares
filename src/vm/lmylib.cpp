@@ -1993,53 +1993,67 @@ static int ExTransferContactAsset(lua_State *L) {
 	}
 
 	std::shared_ptr<CAppUserAccout> temp = make_shared<CAppUserAccout>();
-	std::shared_ptr<CAppUserAccout> recvAccout = make_shared<CAppUserAccout>();
 	CScriptDBViewCache* pContractScript = pVmRunEvn->GetScriptDB();
-	bool ret = true;
-	LogPrint("vm", "script1 %s\n", script.ToString());
-	LogPrint("vm", "key1 %s\n", HexStr(sendkey).c_str());
-	if (pContractScript->GetScriptAcc(script, sendkey, *temp.get())) {
 
-		if(!pContractScript->EraseScriptAcc(script, sendkey))
-		{
-			return RetFalse(string(__FUNCTION__)+"para  err2 !");
+	if (!pContractScript->GetScriptAcc(script, sendkey, *temp.get())) {
+		return RetFalse(string(__FUNCTION__)+"para  err3 !");
+	}
+
+	temp.get()->AutoMergeFreezeToFree(chainActive.Tip()->nHeight);
+
+	uint64_t nMoney = temp.get()->getllValues();
+
+	int i = 0;
+	CAppFundOperate op;
+	memset(&op, 0, sizeof(op));
+
+	if(nMoney > 0) {
+		op.mMoney = nMoney;
+		op.outheight = 0;
+		op.opeatortype = SUB_FREE_OP;
+		op.appuserIDlen = sendkey.size();
+		for (i = 0; i < op.appuserIDlen; i++) {
+			op.vAppuser[i] = sendkey[i];
 		}
 
-	}
-	else
-    {
-    	return RetFalse(string(__FUNCTION__)+"para  err3 !");
-    }
+		pVmRunEvn->InsertOutAPPOperte(sendkey, op);
 
-	if(!temp.get()->AutoMergeFreezeToFree(chainActive.Tip()->nHeight)) {
-		return false;
-	}
-
-	if (!pContractScript->GetScriptAcc(script, recvkey, *recvAccout.get())) {
-		recvAccout = make_shared<CAppUserAccout>(recvkey);
+		op.opeatortype = ADD_FREE_OP;
+		op.appuserIDlen = recvkey.size();
+		for (i = 0; i < op.appuserIDlen; i++) {
+			op.vAppuser[i] = recvkey[i];
+		}
+		pVmRunEvn->InsertOutAPPOperte(recvkey, op);
 	}
 
-	uint64_t tempValue = 0;
-	if(!SafeAdd(recvAccout.get()->getllValues() , temp.get()->getllValues(), tempValue)) {
-		RetFalse(string(__FUNCTION__) + "overflow !");
-	}
-	recvAccout.get()->setLlValues(tempValue);
 	vector<CAppCFund> vTemp = temp.get()->getFreezedFund();
 	for(auto fund : vTemp)
 	{
-		recvAccout.get()->AddAppCFund(fund);
+		op.mMoney = fund.getvalue();
+		op.outheight = fund.getheight();
+		op.opeatortype = SUB_TAG_OP;
+		op.appuserIDlen = sendkey.size();
+		for (i = 0; i < op.appuserIDlen; i++) {
+			op.vAppuser[i] = sendkey[i];
+		}
+
+		op.FundTaglen = fund.GetTag().size();
+		for(i = 0; i < op.FundTaglen; i++) {
+			op.vFundTag[i] = fund.GetTag()[i];
+		}
+
+		pVmRunEvn->InsertOutAPPOperte(sendkey, op);
+
+		op.opeatortype = ADD_TAG_OP;
+		op.appuserIDlen = recvkey.size();
+		for (i = 0; i < op.appuserIDlen; i++) {
+			op.vAppuser[i] = recvkey[i];
+		}
+
+		pVmRunEvn->InsertOutAPPOperte(recvkey, op);
 	}
 
-	shared_ptr<vector<CScriptDBOperLog> > m_dblog = pVmRunEvn->GetDbLog();
-
-	CScriptDBOperLog log;
-	ret = pContractScript->SetScriptAcc(script, *recvAccout.get(), log);
-	if(ret)
-	{
-		m_dblog.get()->push_back(log);
-	}
-
-	return RetRstBooleanToLua(L, ret);
+	return RetRstBooleanToLua(L, true);
 
 }
 
@@ -2090,77 +2104,52 @@ static int ExTransferSomeAsset(lua_State *L) {
 		return RetFalse(string(__FUNCTION__)+"recv addr is not valid !");
 	}
 
-	std::shared_ptr<CAppUserAccout> temp = make_shared<CAppUserAccout>();
-	std::shared_ptr<CAppUserAccout> recvAccout = make_shared<CAppUserAccout>();
-	CScriptDBViewCache* pContractScript = pVmRunEvn->GetScriptDB();
-
-	LogPrint("vm", "script2 %s\n", script.ToString());
-	LogPrint("vm", "key2 %s\n", HexStr(sendkey).c_str());
-	if (!pContractScript->GetScriptAcc(script, sendkey, *temp.get())) {
-		return RetFalse(string(__FUNCTION__) + "para  err3 !");
-	}
-	if( !temp.get()->AutoMergeFreezeToFree(chainActive.Tip()->nHeight)) {
-		return false;
-	}
-	if (!pContractScript->GetScriptAcc(script, recvkey, *recvAccout.get())) {
-		recvAccout = make_shared<CAppUserAccout>(recvkey);
-	}
-
 	uint64_t uTransferMoney = assetOp.GetUint64Value();
+	if(0 == uTransferMoney)
+	{
+		return RetFalse(string(__FUNCTION__)+"Transfer Money is not valid !");
+	}
+
 	int nHeight = assetOp.getheight();
-	if( nHeight > 0)
-	{
-		vector<unsigned char> vtag = assetOp.GetFundTagV();
-		CAppCFund fund(vtag,uTransferMoney,nHeight);
-		if(temp.get()->MinusAppCFund(fund))
-		{
-			recvAccout.get()->AddAppCFund(fund);
-		}
-		else
-		{
-			return RetFalse(string(__FUNCTION__) + "para  err4 !");
-		}
+	if(nHeight < 0) {
+		return RetFalse(string(__FUNCTION__)+"outHeight is not valid !");
 	}
+
+	int i = 0;
+	CAppFundOperate op;
+	memset(&op, 0, sizeof(op));
+	vector<unsigned char> vtag = assetOp.GetFundTagV();
+	op.FundTaglen = vtag.size();
+
+	for(i = 0; i < op.FundTaglen; i++) {
+		op.vFundTag[i] = vtag[i];
+	}
+
+	op.mMoney = uTransferMoney;
+	op.outheight = nHeight;
+	op.appuserIDlen = sendkey.size();
+
+	for (i = 0; i < op.appuserIDlen; i++) {
+		op.vAppuser[i] = sendkey[i];
+	}
+	if (nHeight > 0)
+		op.opeatortype = SUB_TAG_OP;
 	else
-	{
-		int64_t uDiffMoney = temp.get()->getllValues() - uTransferMoney;
-		if( uDiffMoney < 0)
-		{
-			LogPrint("vm", "%llu %llu\n", temp.get()->getllValues(), uTransferMoney);
-			return RetFalse(string(__FUNCTION__) + "para  err5 !");
-		}
-		else
-		{
-			temp.get()->setLlValues(uDiffMoney);
+		op.opeatortype = SUB_FREE_OP;
+	pVmRunEvn->InsertOutAPPOperte(sendkey, op);
 
-			uint64_t tempValue = 0;
-			if(!SafeAdd(recvAccout.get()->getllValues(), uTransferMoney, tempValue)) {
-				RetFalse(string(__FUNCTION__) + "overflow !");
-			}
-
-			recvAccout.get()->setLlValues( tempValue );
-		}
+	if (nHeight > 0)
+		op.opeatortype = ADD_TAG_OP;
+	else
+		op.opeatortype = ADD_FREE_OP;
+	op.appuserIDlen = recvkey.size();
+	for (i = 0; i < op.appuserIDlen; i++) {
+		op.vAppuser[i] = recvkey[i];
 	}
+	pVmRunEvn->InsertOutAPPOperte(recvkey, op);
 
-	bool ret = true;
-	bool ret2 = true;
-	shared_ptr<vector<CScriptDBOperLog> > m_dblog = pVmRunEvn->GetDbLog();
+	return RetRstBooleanToLua(L, true);
 
-	CScriptDBOperLog log;
-	ret = pContractScript->SetScriptAcc(script, *temp.get(), log);
-	if(ret)
-	{
-		m_dblog.get()->push_back(log);
-	}
-
-	CScriptDBOperLog log2;
-	ret2 = pContractScript->SetScriptAcc(script, *recvAccout.get(), log2);
-	if(ret2)
-	{
-		m_dblog.get()->push_back(log2);
-	}
-
-    return RetRstBooleanToLua(L, ret && ret2);
 }
 
 static const luaL_Reg mylib[] = { //

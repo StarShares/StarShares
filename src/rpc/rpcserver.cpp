@@ -239,7 +239,7 @@ static const CRPCCommand vRPCCommands[] =
     { "getnettotals",           &getnettotals,           true,      true,       false },
     { "getpeerinfo",            &getpeerinfo,            true,      false,      false },
     { "ping",                   &ping,                   true,      false,      false },
-    { "getcoinstate",    &getcoinstate,    false,     false,      false }, //true
+    { "getcoinstate",    		&getcoinstate,    		 false,     false,      false }, //true
 
     /* Block chain and UTXO */
     { "getblockchaininfo",      &getblockchaininfo,      true,      false,      false },
@@ -302,6 +302,8 @@ static const CRPCCommand vRPCCommands[] =
     { "getbalance",             &getbalance,             false,     false,      true },
     { "notionalpoolingbalance", &notionalpoolingbalance, false,     false,      true },
     { "dispersebalance", 		&dispersebalance, 		 false,     false,      true },
+    { "notionalpoolingasset", 	&notionalpoolingasset, 	 false,     false,      true },
+    { "getassets", 				&getassets, 	 		 false,     false,      true },
     { "submittx",      			&submittx,       	 	 true,      false,      false},
 
     { "sigstr",    				&sigstr,    			 true,      false,      true },

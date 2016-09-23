@@ -17,6 +17,8 @@
 CVmRunEvn::CVmRunEvn() {
 	RawAccont.clear();
 	NewAccont.clear();
+	RawAppUserAccout.clear();
+	NewAppUserAccout.clear();
 	RunTimeHeight = 0;
 	m_ScriptDBTip = NULL;
 	m_view = NULL;
@@ -29,7 +31,15 @@ vector<shared_ptr<CAccount> > &CVmRunEvn::GetRawAccont() {
 vector<shared_ptr<CAccount> > &CVmRunEvn::GetNewAccont() {
 	return NewAccont;
 }
+vector<shared_ptr<CAppUserAccout>> &CVmRunEvn::GetNewAppUserAccount()
+{
+	return NewAppUserAccout;
+}
 
+vector<shared_ptr<CAppUserAccout>> &CVmRunEvn::GetRawAppUserAccount()
+{
+	return RawAppUserAccout;
+}
 
 
 bool CVmRunEvn::intial(shared_ptr<CBaseTransaction> & Tx, CAccountViewCache& view, int nheight) {
@@ -208,6 +218,20 @@ vector_unsigned_char CVmRunEvn::GetAccountID(CVmOperate value) {
 	}
 	return accountid;
 }
+
+shared_ptr<CAppUserAccout> CVmRunEvn::GetAppAccount(shared_ptr<CAppUserAccout>& AppAccount) {
+	if (RawAppUserAccout.size() == 0)
+		return NULL;
+	vector<shared_ptr<CAppUserAccout> >::iterator Iter;
+	for (Iter = RawAppUserAccout.begin(); Iter != RawAppUserAccout.end(); Iter++) {
+		shared_ptr<CAppUserAccout> temp = *Iter;
+		if (AppAccount.get()->getaccUserId() == temp.get()->getaccUserId()) {
+			return temp;
+		}
+	}
+	return NULL;
+}
+
 bool CVmRunEvn::CheckOperate(const vector<CVmOperate> &listoperate) {
 	// judge contract rulue
 	uint64_t addmoey = 0, miusmoney = 0;
@@ -361,12 +385,12 @@ bool CVmRunEvn::CheckAppAcctOperate(CTransaction* tx) {
 		return false;
 	}
 */
-	uint64_t sysAcctSum = 0;
-	if(!SafeSubtract(tx->llValues, sysContractAcct, sysAcctSum)) {
+	int64_t sysAcctSum = 0;
+	if (!SafeSubtract((int64_t)tx->llValues, (int64_t)sysContractAcct, sysAcctSum)) {
 		return false;
 	}
 
-	if(sumValue != (int64_t)sysAcctSum){
+	if(sumValue != sysAcctSum){
 		LogPrint("vm", "CheckAppAcctOperate:addValue=%lld, minusValue=%lld, txValue=%lld, sysContractAcct=%lld sumValue=%lld, sysAcctSum=%lld\n", addValue, minusValue, tx->llValues, sysContractAcct,sumValue, sysAcctSum);
 		return false;
 	}
@@ -531,6 +555,7 @@ bool CVmRunEvn::GetAppUserAccout(const vector<unsigned char> &vAppUserId, shared
 }
 
 bool CVmRunEvn::OpeatorAppAccount(const map<vector<unsigned char >,vector<CAppFundOperate> > opMap, CScriptDBViewCache& view) {
+	NewAppUserAccout.clear();
 	if ((MapAppOperate.size() > 0)) {
 		for (auto const tem : opMap) {
 			shared_ptr<CAppUserAccout> sptrAcc;
@@ -544,6 +569,11 @@ bool CVmRunEvn::OpeatorAppAccount(const map<vector<unsigned char >,vector<CAppFu
 				return false;
 
 			}
+			shared_ptr<CAppUserAccout> vmAppAccount = GetAppAccount(sptrAcc);
+			if (vmAppAccount.get() == NULL) {
+				RawAppUserAccout.push_back(sptrAcc);
+				vmAppAccount = sptrAcc;
+			}
 			LogPrint("vm", "before user: %s\r\n", sptrAcc.get()->toString());
 			if (!sptrAcc.get()->Operate(tem.second)) {
 
@@ -555,6 +585,7 @@ bool CVmRunEvn::OpeatorAppAccount(const map<vector<unsigned char >,vector<CAppFu
 						HexStr(tem.first));
 				return false;
 			}
+			NewAppUserAccout.push_back(sptrAcc);
 			LogPrint("vm", "after user: %s\r\n", sptrAcc.get()->toString());
 			CScriptDBOperLog log;
 			view.SetScriptAcc(GetScriptRegID(), *sptrAcc.get(), log);
