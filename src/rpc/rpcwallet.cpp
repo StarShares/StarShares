@@ -363,7 +363,7 @@ Value sendtoaddressraw(const Array& params, bool fHelp)
 		hight = params[4].get_int();
 	}
 
-	std::shared_ptr<CTransaction> tx = make_shared<CTransaction>(send,rev,Fee, nAmount,hight);
+	std::shared_ptr<CTransaction> tx = std::make_shared<CTransaction>(send,rev,Fee, nAmount,hight);
 	if (!pwalletMain->Sign(sendKeyId, tx->SignatureHash(), tx->signature)) {
 				throw JSONRPCError(RPC_INVALID_PARAMETER,  "Sign failed");
 	}
@@ -565,7 +565,7 @@ Value getassets(const Array& params, bool fHelp)
 		string addr = KeyId.ToAddress();
 		veckey.assign(addr.c_str(), addr.c_str() + addr.length());
 
-		std::shared_ptr<CAppUserAccout> temp = make_shared<CAppUserAccout>();
+		std::shared_ptr<CAppUserAccout> temp = std::make_shared<CAppUserAccout>();
 		if (!pScriptDBTip->GetScriptAcc(regid, veckey, *temp.get())) {
 			continue;
 		}

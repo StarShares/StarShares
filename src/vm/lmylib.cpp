@@ -770,7 +770,7 @@ static int ExVerifySignatureFunc(lua_State *L) {
 	CPubKey pk(retdata.at(1).get()->begin(), retdata.at(1).get()->end());
 	vector<unsigned char> vec_hash(retdata.at(2).get()->rbegin(), retdata.at(2).get()->rend());
 	uint256 hash(vec_hash);
-	auto tem = make_shared<std::vector<vector<unsigned char> > >();
+	auto tem = std::make_shared<std::vector<vector<unsigned char> > >();
 
 	bool rlt = CheckSignScript(hash, *retdata.at(0), pk);
 	if (!rlt) {
@@ -1992,7 +1992,7 @@ static int ExTransferContactAsset(lua_State *L) {
 		return RetFalse(string(__FUNCTION__)+"recv addr is not valid !");
 	}
 
-	std::shared_ptr<CAppUserAccout> temp = make_shared<CAppUserAccout>();
+	std::shared_ptr<CAppUserAccout> temp = std::make_shared<CAppUserAccout>();
 	CScriptDBViewCache* pContractScript = pVmRunEvn->GetScriptDB();
 
 	if (!pContractScript->GetScriptAcc(script, sendkey, *temp.get())) {
@@ -2152,6 +2152,34 @@ static int ExTransferSomeAsset(lua_State *L) {
 
 }
 
+static int ExGetBlockTimestamp(lua_State *L) {
+	int height = 0;
+    if(!GetDataInt(L,height)){
+    	return RetFalse("ExGetBlcokTimestamp para err1");
+    }
+
+    if(height <= 0) {
+    	height = chainActive.Height() + height;
+        if(height < 0) {
+        	return RetFalse("ExGetBlcokTimestamp para err2");
+        }
+    }
+
+
+	CBlockIndex *pindex = chainActive[height];
+	if(!pindex) {
+		return RetFalse("ExGetBlcokTimestamp get time stamp error");
+	}
+
+	if (lua_checkstack(L, sizeof(lua_Integer))) {
+		lua_pushinteger(L, (lua_Integer) pindex->nTime);
+		return 1;
+	}
+
+	LogPrint("vm", "%s\r\n", "ExGetBlcokTimestamp stack overflow");
+	return 0;
+}
+
 static const luaL_Reg mylib[] = { //
 		{"Int64Mul", ExInt64MulFunc },			//
 		{"Int64Add", ExInt64AddFunc },			//
@@ -2192,6 +2220,7 @@ static const luaL_Reg mylib[] = { //
 		{"IntegerToByte8",ExIntegerToByte8Func},
 		{"TransferContactAsset", ExTransferContactAsset},
 		{"TransferSomeAsset", ExTransferSomeAsset},
+		{"GetBlockTimestamp", ExGetBlockTimestamp},
 		{NULL,NULL}
 
 		};

@@ -81,7 +81,7 @@ bool CVmRunEvn::intial(shared_ptr<CBaseTransaction> & Tx, CAccountViewCache& vie
 	}
 
 	try {
-		pLua = make_shared<CVmlua>(vmScript.Rom, secure->vContract);
+		pLua = std::make_shared<CVmlua>(vmScript.Rom, secure->vContract);
 	} catch (exception& e) {
 		LogPrint("ERROR", "%s\r\n", "CVmScriptRun::intial() CVmlua init error");
 		return false;
@@ -398,7 +398,7 @@ bool CVmRunEvn::CheckAppAcctOperate(CTransaction* tx) {
 }
 
 //shared_ptr<vector<CVmOperate>> CVmRunEvn::GetOperate() const {
-//	auto tem = make_shared<vector<CVmOperate>>();
+//	auto tem = std::make_shared<vector<CVmOperate>>();
 //	shared_ptr<vector<unsigned char>> retData = pMcu.get()->GetRetData();
 //	CDataStream Contractstream(*retData.get(), SER_DISK, CLIENT_VERSION);
 //	vector<CVmOperate> retvmcode;
@@ -418,7 +418,7 @@ bool CVmRunEvn::OpeatorAccount(const vector<CVmOperate>& listoperate, CAccountVi
 		uint64_t value;
 		memcpy(&value, it.money, sizeof(it.money));
 
-		auto tem = make_shared<CAccount>();
+		auto tem = std::make_shared<CAccount>();
 //		vector_unsigned_char accountid = GetAccountID(it);
 //		if (accountid.size() == 0) {
 //			return false;
@@ -541,9 +541,9 @@ shared_ptr<vector<CScriptDBOperLog> > CVmRunEvn::GetDbLog()
  */
 bool CVmRunEvn::GetAppUserAccout(const vector<unsigned char> &vAppUserId, shared_ptr<CAppUserAccout> &sptrAcc) {
 	assert(m_ScriptDBTip != NULL);
-	shared_ptr<CAppUserAccout> tem = make_shared<CAppUserAccout>();
+	shared_ptr<CAppUserAccout> tem = std::make_shared<CAppUserAccout>();
 	if (!m_ScriptDBTip->GetScriptAcc(GetScriptRegID(), vAppUserId, *tem.get())) {
-			tem = make_shared<CAppUserAccout>(vAppUserId);
+			tem = std::make_shared<CAppUserAccout>(vAppUserId);
 			sptrAcc = tem;
 			return true;
 	}
